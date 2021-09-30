@@ -15,26 +15,20 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    @Value("${jwt.secret}")
-    private String secret;
+    @Value("${jwt.secret.key}")
+    private String secret_key;
 
     public static final int JWT_TOKEN_VALIDITY = 1000 * 60 * 60 * 10;
 
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+    private Claims extractClaims(String token) {
+        return Jwts.parser().setSigningKey(secret_key).parseClaimsJws(token).getBody();
+    }
+    public String extractUserName(String token) {
+        return extractClaims(token).getSubject();
     }
 
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
+    private Date extractExpiration(String token) {
+        return extractClaims(token).getExpiration();
     }
 
     private Boolean isTokenExpired(String token) {
@@ -47,14 +41,13 @@ public class JwtUtils {
     }
 
     private String createToken(Map<String, Object> claims, String subject) {
-
         return Jwts.builder().setClaims(claims).setSubject(subject).setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY))
-                .signWith(SignatureAlgorithm.HS256, secret).compact();
+                .signWith(SignatureAlgorithm.HS256, secret_key).compact();
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
+        final String username = extractUserName(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 }
